@@ -189,4 +189,44 @@ contract LotteryPool {
             pendingWithdrawals[msg.sender] = amount;
         }
     }
+
+    function getActivePools() external view returns (uint256[] memory) {
+        uint256 activeCount = 0;
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            if (pools[i].active) {
+                activeCount++;
+            }
+        }
+
+        uint256[] memory activePools = new uint256[](activeCount);
+        uint256 index = 0;
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            if (pools[i].active) {
+                activePools[index] = i;
+                index++;
+            }
+        }
+
+        return activePools;
+    }
+
+    function getInactivePools() external view returns (uint256[] memory) {
+        uint256 inactiveCount = 0;
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            if (!pools[i].active) {
+                inactiveCount++;
+            }
+        }
+
+        uint256[] memory inactivePools = new uint256[](inactiveCount);
+        uint256 index = 0;
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            if (!pools[i].active) {
+                inactivePools[index] = i;
+                index++;
+            }
+        }
+
+        return inactivePools;
+    }
 }
