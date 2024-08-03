@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 contract LotteryPool {
     struct Pool {
+        uint256 poolId;
         address creator;
         uint256 creatorAllocation;
         uint256 targetAmount;
@@ -23,7 +24,7 @@ contract LotteryPool {
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256) public creatorTotalAllocations;
     uint256 public poolCounter;
-    uint256 public constant MIN_TARGET_AMOUNT = 5 ether;
+    uint256 public constant MIN_TARGET_AMOUNT = 0.2 ether;
     uint256 public constant MAX_TARGET_AMOUNT = 1000 ether;
     mapping(address => uint256) public pendingWithdrawals;
 
@@ -67,6 +68,7 @@ contract LotteryPool {
         founderAllocation += msg.value;
         poolCounter++;
         Pool storage newPool = pools[poolCounter];
+        newPool.poolId = poolCounter;
         newPool.creator = msg.sender;
         newPool.targetAmount = _targetAmount;
         newPool.active = true;
@@ -228,5 +230,56 @@ contract LotteryPool {
         }
 
         return inactivePools;
+    }
+
+    function getPoolDetails(uint256 _poolId)
+        external
+        view
+        returns (
+            uint256 poolId,
+            address creator,
+            uint256 creatorAllocation,
+            uint256 targetAmount,
+            uint256 currentAmount,
+            address winner,
+            bool active,
+            address[] memory participants
+        )
+    {
+        Pool storage pool = pools[_poolId];
+        return (
+            pool.poolId,
+            pool.creator,
+            pool.creatorAllocation,
+            pool.targetAmount,
+            pool.currentAmount,
+            pool.winner,
+            pool.active,
+            pool.participants
+        );
+    }
+
+    function getPoolsByCreator(address _creator)
+        external
+        view
+        returns (uint256[] memory)
+    {
+        uint256 count = 0;
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            if (pools[i].creator == _creator) {
+                count++;
+            }
+        }
+
+        uint256[] memory result = new uint256[](count);
+        uint256 index = 0;
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            if (pools[i].creator == _creator) {
+                result[index] = i;
+                index++;
+            }
+        }
+
+        return result;
     }
 }
