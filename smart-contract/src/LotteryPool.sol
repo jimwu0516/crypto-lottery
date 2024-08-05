@@ -108,7 +108,11 @@ contract LotteryPool {
                 pendingWithdrawals[winner] += payoutAmount;
                 emit WithdrawalFailed(winner, payoutAmount);
             } else {
-                emit WinnerSelected(_poolId, winner, payoutAmount);
+                emit WinnerSelected(
+                    _poolId,
+                    winner,
+                    payoutAmount
+                );
             }
         }
 
@@ -245,7 +249,7 @@ contract LotteryPool {
             uint256 currentAmount,
             address winner,
             bool active,
-            address[] memory participants
+            address[] memory participants        
         )
     {
         Pool storage pool = pools[_poolId];
@@ -283,7 +287,7 @@ contract LotteryPool {
         return result;
     }
 
-    function getPoolParticipants(
+    function getPoolParticipantsAmount(
         uint256 _poolId
     ) external view returns (address[] memory, uint256[] memory) {
         Pool storage pool = pools[_poolId];
