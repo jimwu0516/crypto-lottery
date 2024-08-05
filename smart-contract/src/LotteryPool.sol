@@ -232,7 +232,9 @@ contract LotteryPool {
         return inactivePools;
     }
 
-    function getPoolDetails(uint256 _poolId)
+    function getPoolDetails(
+        uint256 _poolId
+    )
         external
         view
         returns (
@@ -259,11 +261,9 @@ contract LotteryPool {
         );
     }
 
-    function getPoolsByCreator(address _creator)
-        external
-        view
-        returns (uint256[] memory)
-    {
+    function getPoolsByCreator(
+        address _creator
+    ) external view returns (uint256[] memory) {
         uint256 count = 0;
         for (uint256 i = 1; i <= poolCounter; i++) {
             if (pools[i].creator == _creator) {
@@ -281,5 +281,22 @@ contract LotteryPool {
         }
 
         return result;
+    }
+
+    function getPoolParticipants(
+        uint256 _poolId
+    ) external view returns (address[] memory, uint256[] memory) {
+        Pool storage pool = pools[_poolId];
+        uint256 participantCount = pool.participants.length;
+        address[] memory participants = new address[](participantCount);
+        uint256[] memory amounts = new uint256[](participantCount);
+
+        for (uint256 i = 0; i < participantCount; i++) {
+            address participant = pool.participants[i];
+            participants[i] = participant;
+            amounts[i] = pool.deposits[participant];
+        }
+
+        return (participants, amounts);
     }
 }
