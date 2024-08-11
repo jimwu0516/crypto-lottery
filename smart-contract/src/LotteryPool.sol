@@ -21,11 +21,11 @@ contract LotteryPool {
     uint256 public participantFeePercent = 7;
     uint256 public creatorFeePercent = 2;
     uint256 public founderFeePercent = 5;
+    uint256 public constant MIN_TARGET_AMOUNT = 0.2 ether;
+    uint256 public constant MAX_TARGET_AMOUNT = 1000 ether;
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256) public creatorTotalAllocations;
     uint256 public poolCounter;
-    uint256 public constant MIN_TARGET_AMOUNT = 0.2 ether;
-    uint256 public constant MAX_TARGET_AMOUNT = 1000 ether;
     mapping(address => uint256) public pendingWithdrawals;
 
     event PoolCreated(
@@ -57,12 +57,9 @@ contract LotteryPool {
     function createPool(uint256 _targetAmount) external payable {
         require(msg.value == poolCreationFee, "Must pay the pool creation fee");
         require(
-            _targetAmount >= MIN_TARGET_AMOUNT,
-            "Target amount must be at least 5 ether"
-        );
-        require(
-            _targetAmount <= MAX_TARGET_AMOUNT,
-            "Target amount must be less than 1000 ether"
+            _targetAmount >= MIN_TARGET_AMOUNT &&
+                _targetAmount <= MAX_TARGET_AMOUNT,
+            "Invalid target amount"
         );
 
         founderAllocation += msg.value;
@@ -118,14 +115,23 @@ contract LotteryPool {
     function selectWinner(uint256 _poolId) internal view returns (address) {
         Pool storage pool = pools[_poolId];
         uint256 totalDeposits = pool.currentAmount;
-        uint256 randomHash = uint256(blockhash(block.number - 1));
+
+        bytes32 randomHash = keccak256(
+            abi.encodePacked(
+                blockhash(block.number - 1),
+                block.timestamp,
+                totalDeposits
+            )
+        );
+
+        uint256 randomIndex = uint256(randomHash) % totalDeposits;
         uint256 cumulativeSum = 0;
 
         for (uint256 i = 0; i < pool.participants.length; i++) {
             address participant = pool.participants[i];
             cumulativeSum += pool.deposits[participant];
 
-            if (randomHash % totalDeposits < cumulativeSum) {
+            if (randomIndex < cumulativeSum) {
                 return participant;
             }
         }
