@@ -19,8 +19,8 @@ contract LotteryPool {
     uint256 public founderAllocation;
     uint256 public poolCreationFee = 0.1 ether;
     uint256 public participantFeePercent = 7;
-    uint256 public creatorFeePercent = 2;
-    uint256 public founderFeePercent = 5;
+    uint256 public creatorFeePercent = 5;
+    uint256 public founderFeePercent = 2;
     uint256 public constant MIN_TARGET_AMOUNT = 0.2 ether;
     uint256 public constant MAX_TARGET_AMOUNT = 1000 ether;
     mapping(uint256 => Pool) public pools;
@@ -142,6 +142,7 @@ contract LotteryPool {
     function withdrawCreatorAllocation(uint256 _poolId) external {
         Pool storage pool = pools[_poolId];
         require(msg.sender == pool.creator, "Only creator can withdraw");
+        require(!pool.active, "Pool is still active");
         require(pool.creatorAllocation > 0, "No funds to withdraw");
 
         uint256 amount = pool.creatorAllocation;
@@ -162,7 +163,11 @@ contract LotteryPool {
         creatorTotalAllocations[msg.sender] = 0;
         for (uint256 i = 1; i <= poolCounter; i++) {
             Pool storage pool = pools[i];
-            if (pool.creator == msg.sender && pool.creatorAllocation > 0) {
+            if (
+                pool.creator == msg.sender &&
+                !pool.active &&
+                pool.creatorAllocation > 0
+            ) {
                 uint256 amount = pool.creatorAllocation;
                 pool.creatorAllocation = 0;
 
@@ -306,11 +311,13 @@ contract LotteryPool {
         return (participants, amounts);
     }
 
-    function getPoolsParticipatedIn() external view returns (uint256[] memory) {
+    function getPoolsParticipatedIn(
+        address participant
+    ) external view returns (uint256[] memory) {
         uint256 participatedCount = 0;
 
         for (uint256 i = 1; i <= poolCounter; i++) {
-            if (pools[i].isParticipant[msg.sender]) {
+            if (pools[i].isParticipant[participant]) {
                 participatedCount++;
             }
         }
@@ -319,7 +326,7 @@ contract LotteryPool {
         uint256 index = 0;
 
         for (uint256 i = 1; i <= poolCounter; i++) {
-            if (pools[i].isParticipant[msg.sender]) {
+            if (pools[i].isParticipant[participant]) {
                 participatedPools[index] = i;
                 index++;
             }
