@@ -29,21 +29,9 @@ contract LotteryPool {
     uint256 public poolCounter;
     mapping(address => uint256) public pendingWithdrawals;
 
-    event PoolCreated(
-        uint256 indexed poolId,
-        address indexed creator,
-        uint256 targetAmount
-    );
-    event Deposited(
-        uint256 indexed poolId,
-        address indexed participant,
-        uint256 amount
-    );
-    event WinnerSelected(
-        uint256 indexed poolId,
-        address indexed winner,
-        uint256 amount
-    );
+    event PoolCreated(uint256 indexed poolId, address indexed creator, uint256 targetAmount);
+    event Deposited(uint256 indexed poolId, address indexed participant, uint256 amount);
+    event WinnerSelected(uint256 indexed poolId, address indexed winner, uint256 amount);
     event WithdrawalFailed(address indexed to, uint256 amount);
 
     constructor() {
@@ -57,11 +45,7 @@ contract LotteryPool {
 
     function createPool(uint256 _targetAmount) external payable {
         require(msg.value == poolCreationFee, "Must pay the pool creation fee");
-        require(
-            _targetAmount >= MIN_TARGET_AMOUNT &&
-                _targetAmount <= MAX_TARGET_AMOUNT,
-            "Invalid target amount"
-        );
+        require(_targetAmount >= MIN_TARGET_AMOUNT && _targetAmount <= MAX_TARGET_AMOUNT, "Invalid target amount");
 
         founderAllocation += msg.value;
         poolCounter++;
@@ -103,7 +87,7 @@ contract LotteryPool {
             pool.winner = winner;
             uint256 payoutAmount = pool.currentAmount;
 
-            (bool success, ) = payable(winner).call{value: payoutAmount}("");
+            (bool success,) = payable(winner).call{value: payoutAmount}("");
             if (!success) {
                 pendingWithdrawals[winner] += payoutAmount;
                 emit WithdrawalFailed(winner, payoutAmount);
@@ -119,13 +103,7 @@ contract LotteryPool {
         Pool storage pool = pools[_poolId];
         uint256 totalDeposits = pool.currentAmount;
 
-        bytes32 randomHash = keccak256(
-            abi.encodePacked(
-                blockhash(block.number - 1),
-                block.timestamp,
-                totalDeposits
-            )
-        );
+        bytes32 randomHash = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, totalDeposits));
 
         uint256 randomIndex = uint256(randomHash) % totalDeposits;
         uint256 cumulativeSum = 0;
@@ -153,7 +131,7 @@ contract LotteryPool {
         pool.finalCreatorAllocation = amount;
         creatorTotalAllocations[msg.sender] -= amount;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         if (!success) {
             pool.creatorAllocation = amount;
             creatorTotalAllocations[msg.sender] += amount;
@@ -164,18 +142,27 @@ contract LotteryPool {
         uint256 totalAllocation = creatorTotalAllocations[msg.sender];
         require(totalAllocation > 0, "No funds to withdraw");
 
-        creatorTotalAllocations[msg.sender] = 0;
+        bool hasInactivePool = false;
+
         for (uint256 i = 1; i <= poolCounter; i++) {
             Pool storage pool = pools[i];
-            if (
-                pool.creator == msg.sender &&
-                !pool.active &&
-                pool.creatorAllocation > 0
-            ) {
+            if (pool.creator == msg.sender && !pool.active && pool.creatorAllocation > 0) {
+                hasInactivePool = true;
+                break;
+            }
+        }
+
+        require(hasInactivePool, "No funds to withdraw");
+
+        creatorTotalAllocations[msg.sender] = 0;
+
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            Pool storage pool = pools[i];
+            if (pool.creator == msg.sender && !pool.active && pool.creatorAllocation > 0) {
                 uint256 amount = pool.creatorAllocation;
                 pool.creatorAllocation = 0;
 
-                (bool success, ) = payable(msg.sender).call{value: amount}("");
+                (bool success,) = payable(msg.sender).call{value: amount}("");
                 if (!success) {
                     pool.creatorAllocation = amount;
                 }
@@ -189,7 +176,7 @@ contract LotteryPool {
         uint256 amount = founderAllocation;
         founderAllocation = 0;
 
-        (bool success, ) = payable(owner).call{value: amount}("");
+        (bool success,) = payable(owner).call{value: amount}("");
         if (!success) {
             founderAllocation = amount;
         }
@@ -201,7 +188,7 @@ contract LotteryPool {
 
         pendingWithdrawals[msg.sender] = 0;
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{value: amount}("");
         if (!success) {
             pendingWithdrawals[msg.sender] = amount;
         }
@@ -276,11 +263,7 @@ contract LotteryPool {
         );
     }
 
-    function getPoolsByCreator(address _creator)
-        external
-        view
-        returns (uint256[] memory)
-    {
+    function getPoolsByCreator(address _creator) external view returns (uint256[] memory) {
         uint256 count = 0;
         for (uint256 i = 1; i <= poolCounter; i++) {
             if (pools[i].creator == _creator) {
@@ -300,11 +283,7 @@ contract LotteryPool {
         return result;
     }
 
-    function getPoolParticipantsAmount(uint256 _poolId)
-        external
-        view
-        returns (address[] memory, uint256[] memory)
-    {
+    function getPoolParticipantsAmount(uint256 _poolId) external view returns (address[] memory, uint256[] memory) {
         Pool storage pool = pools[_poolId];
         uint256 participantCount = pool.participants.length;
         address[] memory participants = new address[](participantCount);
@@ -319,11 +298,7 @@ contract LotteryPool {
         return (participants, amounts);
     }
 
-    function getPoolsParticipatedIn(address participant)
-        external
-        view
-        returns (uint256[] memory)
-    {
+    function getPoolsParticipatedIn(address participant) external view returns (uint256[] memory) {
         uint256 participatedCount = 0;
 
         for (uint256 i = 1; i <= poolCounter; i++) {
