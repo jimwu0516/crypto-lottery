@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-contract LotteryPool {
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+
+contract LotteryPool is ReentrancyGuard {
     struct Pool {
         uint256 poolId;
         address creator;
@@ -64,10 +66,7 @@ contract LotteryPool {
         require(pool.active, "Pool is not active");
         require(msg.value > 0, "Must send some crypto to participate");
 
-        uint256 fee = (msg.value * participantFeePercent) / 1000;
-        uint256 creatorFee = (fee * creatorFeePercent) / participantFeePercent;
-        uint256 founderFee = fee - creatorFee;
-        uint256 amountToPool = msg.value - fee;
+        (uint256 creatorFee, uint256 founderFee, uint256 amountToPool) = calculateFees(msg.value);
 
         pool.currentAmount += amountToPool;
         pool.finalCreatorAllocation += creatorFee;
@@ -99,6 +98,13 @@ contract LotteryPool {
         emit Deposited(_poolId, msg.sender, msg.value);
     }
 
+    function calculateFees(uint256 _amount) internal pure returns (uint256, uint256, uint256) {
+        uint256 creatorFee = (_amount * 5) / 100;
+        uint256 founderFee = (_amount * 2) / 100;
+        uint256 amountToPool = _amount - creatorFee - founderFee;
+        return (creatorFee, founderFee, amountToPool);
+    }
+
     function selectWinner(uint256 _poolId) internal view returns (address) {
         Pool storage pool = pools[_poolId];
         uint256 totalDeposits = pool.currentAmount;
@@ -120,7 +126,7 @@ contract LotteryPool {
         return pool.participants[0];
     }
 
-    function withdrawCreatorAllocation(uint256 _poolId) external {
+    function withdrawCreatorAllocation(uint256 _poolId) external nonReentrant {
         Pool storage pool = pools[_poolId];
         require(msg.sender == pool.creator, "Only creator can withdraw");
         require(!pool.active, "Pool is still active");
@@ -138,7 +144,7 @@ contract LotteryPool {
         }
     }
 
-    function withdrawAllCreatorAllocations() external {
+    function withdrawAllCreatorAllocations() external nonReentrant {
         uint256 totalAllocation = creatorTotalAllocations[msg.sender];
         require(totalAllocation > 0, "No funds to withdraw");
 
@@ -170,7 +176,7 @@ contract LotteryPool {
         }
     }
 
-    function withdrawFounderAllocation() external onlyOwner {
+    function withdrawFounderAllocation() external onlyOwner nonReentrant {
         require(founderAllocation > 0, "No funds to withdraw");
 
         uint256 amount = founderAllocation;
@@ -182,7 +188,7 @@ contract LotteryPool {
         }
     }
 
-    function withdrawPending() external {
+    function withdrawPending() external nonReentrant {
         uint256 amount = pendingWithdrawals[msg.sender];
         require(amount > 0, "No funds to withdraw");
 
