@@ -20,11 +20,11 @@ contract LotteryPool is ReentrancyGuard {
 
     address public owner;
     uint256 public founderAllocation;
-    uint256 public poolCreationFee = 0.1 ether;
+    uint256 public poolCreationFee = 0.0001 ether;
     uint256 public participantFeePercent = 7;
     uint256 public creatorFeePercent = 5;
     uint256 public founderFeePercent = 2;
-    uint256 public constant MIN_TARGET_AMOUNT = 0.2 ether;
+    uint256 public constant MIN_TARGET_AMOUNT = 5 ether;
     uint256 public constant MAX_TARGET_AMOUNT = 1000 ether;
     mapping(uint256 => Pool) public pools;
     mapping(address => uint256) public creatorTotalAllocations;
@@ -36,13 +36,13 @@ contract LotteryPool is ReentrancyGuard {
     event WinnerSelected(uint256 indexed poolId, address indexed winner, uint256 amount);
     event WithdrawalFailed(address indexed to, uint256 amount);
 
-    constructor() {
-        owner = msg.sender;
-    }
-
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
+    }
+
+    constructor() {
+        owner = msg.sender;
     }
 
     function createPool(uint256 _targetAmount) external payable {
@@ -96,34 +96,6 @@ contract LotteryPool is ReentrancyGuard {
         }
 
         emit Deposited(_poolId, msg.sender, msg.value);
-    }
-
-    function calculateFees(uint256 _amount) internal pure returns (uint256, uint256, uint256) {
-        uint256 creatorFee = (_amount * 5) / 100;
-        uint256 founderFee = (_amount * 2) / 100;
-        uint256 amountToPool = _amount - creatorFee - founderFee;
-        return (creatorFee, founderFee, amountToPool);
-    }
-
-    function selectWinner(uint256 _poolId) internal view returns (address) {
-        Pool storage pool = pools[_poolId];
-        uint256 totalDeposits = pool.currentAmount;
-
-        bytes32 randomHash = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, totalDeposits));
-
-        uint256 randomIndex = uint256(randomHash) % totalDeposits;
-        uint256 cumulativeSum = 0;
-
-        for (uint256 i = 0; i < pool.participants.length; i++) {
-            address participant = pool.participants[i];
-            cumulativeSum += pool.deposits[participant];
-
-            if (randomIndex < cumulativeSum) {
-                return participant;
-            }
-        }
-
-        return pool.participants[0];
     }
 
     function withdrawCreatorAllocation(uint256 _poolId) external nonReentrant {
@@ -324,5 +296,46 @@ contract LotteryPool is ReentrancyGuard {
         }
 
         return participatedPools;
+    }
+
+    function getWithdrawableAmount(address creator) external view returns (uint256) {
+        uint256 totalWithdrawable = 0;
+
+        for (uint256 i = 1; i <= poolCounter; i++) {
+            Pool storage pool = pools[i];
+            if (pool.creator == creator && !pool.active && pool.creatorAllocation > 0) {
+                totalWithdrawable += pool.creatorAllocation;
+            }
+        }
+
+        return totalWithdrawable;
+    }
+
+    function calculateFees(uint256 _amount) internal pure returns (uint256, uint256, uint256) {
+        uint256 creatorFee = (_amount * 5) / 100;
+        uint256 founderFee = (_amount * 2) / 100;
+        uint256 amountToPool = _amount - creatorFee - founderFee;
+        return (creatorFee, founderFee, amountToPool);
+    }
+
+    function selectWinner(uint256 _poolId) internal view returns (address) {
+        Pool storage pool = pools[_poolId];
+        uint256 totalDeposits = pool.currentAmount;
+
+        bytes32 randomHash = keccak256(abi.encodePacked(blockhash(block.number - 1), block.timestamp, totalDeposits));
+
+        uint256 randomIndex = uint256(randomHash) % totalDeposits;
+        uint256 cumulativeSum = 0;
+
+        for (uint256 i = 0; i < pool.participants.length; i++) {
+            address participant = pool.participants[i];
+            cumulativeSum += pool.deposits[participant];
+
+            if (randomIndex < cumulativeSum) {
+                return participant;
+            }
+        }
+
+        return pool.participants[0];
     }
 }
