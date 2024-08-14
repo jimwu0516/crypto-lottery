@@ -20,14 +20,13 @@ contract LotteryPool is ReentrancyGuard {
 
     address public owner;
     uint256 public founderAllocation;
-    uint256 public poolCreationFee = 0.0001 ether;
+    uint256 public poolCreationFee = 0.1 ether;
     uint256 public participantFeePercent = 7;
     uint256 public creatorFeePercent = 5;
     uint256 public founderFeePercent = 2;
     uint256 public constant MIN_TARGET_AMOUNT = 5 ether;
     uint256 public constant MAX_TARGET_AMOUNT = 1000 ether;
     mapping(uint256 => Pool) public pools;
-    mapping(address => uint256) public creatorTotalAllocations;
     uint256 public poolCounter;
     mapping(address => uint256) public pendingWithdrawals;
 
@@ -71,7 +70,6 @@ contract LotteryPool is ReentrancyGuard {
         pool.currentAmount += amountToPool;
         pool.finalCreatorAllocation += creatorFee;
         pool.creatorAllocation += creatorFee;
-        creatorTotalAllocations[pool.creator] += creatorFee;
         founderAllocation += founderFee;
 
         if (!pool.isParticipant[msg.sender]) {
@@ -107,19 +105,14 @@ contract LotteryPool is ReentrancyGuard {
         uint256 amount = pool.creatorAllocation;
         pool.creatorAllocation = 0;
         pool.finalCreatorAllocation = amount;
-        creatorTotalAllocations[msg.sender] -= amount;
 
         (bool success,) = payable(msg.sender).call{value: amount}("");
         if (!success) {
             pool.creatorAllocation = amount;
-            creatorTotalAllocations[msg.sender] += amount;
         }
     }
 
     function withdrawAllCreatorAllocations() external nonReentrant {
-        uint256 totalAllocation = creatorTotalAllocations[msg.sender];
-        require(totalAllocation > 0, "No funds to withdraw");
-
         bool hasInactivePool = false;
 
         for (uint256 i = 1; i <= poolCounter; i++) {
@@ -131,8 +124,6 @@ contract LotteryPool is ReentrancyGuard {
         }
 
         require(hasInactivePool, "No funds to withdraw");
-
-        creatorTotalAllocations[msg.sender] = 0;
 
         for (uint256 i = 1; i <= poolCounter; i++) {
             Pool storage pool = pools[i];
@@ -318,7 +309,7 @@ contract LotteryPool is ReentrancyGuard {
         return (creatorFee, founderFee, amountToPool);
     }
 
-    function selectWinner(uint256 _poolId) internal view returns (address) {
+    function selectWinner(uint256 _poolId) private view returns (address) {
         Pool storage pool = pools[_poolId];
         uint256 totalDeposits = pool.currentAmount;
 
